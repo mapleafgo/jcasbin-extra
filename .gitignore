@@ -7,3 +7,6 @@
 .gradle/
 .idea/
 build/
+
+./build.gradle.kts
+./secring.gpg
