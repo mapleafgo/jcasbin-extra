@@ -77,6 +77,10 @@ publishing {
             }
             mavenCentral {
                 url = uri("https://oss.sonatype.org/content/repositories/snapshots")
+                credentials {
+                    username = NEXUS_USERNAME
+                    password = NEXUS_PASSWORD
+                }
             }
         }
     }
