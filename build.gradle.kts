@@ -34,8 +34,8 @@ tasks.withType<Javadoc>() {
     options.encoding = "utf-8"
 }
 
-val NEXUS_USERNAME: String by project;
-val NEXUS_PASSWORD: String by project;
+val ossUsername: String by project;
+val ossPassword: String by project;
 
 publishing {
     publications {
@@ -71,8 +71,8 @@ publishing {
             mavenCentral {
                 url = uri("https://oss.sonatype.org/service/local/staging/deploy/maven2")
                 credentials {
-                    username = NEXUS_USERNAME
-                    password = NEXUS_PASSWORD
+                    username = ossUsername
+                    password = ossPassword
                 }
             }
         }
