@@ -1,4 +1,4 @@
-package cn.jcasbin.watcher;
+package cn.mapleafgo.jcasbin.watcher;
 
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.Client;
@@ -11,6 +11,7 @@ import java.nio.charset.Charset;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 
 /**
  * casbin etcd 观察者
@@ -19,10 +20,11 @@ import java.util.concurrent.ExecutionException;
  */
 @Slf4j
 public class EtcdWatcher implements Watcher {
-    private Client client;
-    private String keyName;
+    private final Client client;
+    private final String keyName;
 
     private Runnable callback;
+    private Consumer<String> callbackConsumer;
 
     public EtcdWatcher(Client client, String keyName) {
         this.client = client;
@@ -36,6 +38,11 @@ public class EtcdWatcher implements Watcher {
     @Override
     public void setUpdateCallback(Runnable runnable) {
         this.callback = runnable;
+    }
+
+    @Override
+    public void setUpdateCallback(Consumer<String> consumer) {
+        this.callbackConsumer = consumer;
     }
 
     @Override
@@ -58,7 +65,12 @@ public class EtcdWatcher implements Watcher {
     public void startWatch() {
         client.getWatchClient().watch(getKeyName(), watchResponse -> {
             List<WatchEvent> eventList = watchResponse.getEvents();
-            if (callback != null) eventList.forEach(e -> callback.run());
+            if (callback != null) {
+                eventList.forEach(e -> callback.run());
+            }
+            if (callbackConsumer != null) {
+                eventList.forEach(e -> callbackConsumer.accept(String.format("casbin watcher Get: %s", e.getKeyValue().getValue().toString(Charset.defaultCharset()))));
+            }
         });
     }
 

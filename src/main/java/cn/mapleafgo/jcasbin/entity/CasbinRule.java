@@ -1,4 +1,4 @@
-package cn.jcasbin.entity;
+package cn.mapleafgo.jcasbin.entity;
 
 import cn.hutool.core.util.ArrayUtil;
 import lombok.Data;
@@ -28,7 +28,9 @@ public class CasbinRule {
      */
     @SneakyThrows
     public void setRule(List<String> rule) {
-        if (rule.isEmpty()) return;
+        if (rule.isEmpty()) {
+            return;
+        }
         for (int i = 0; i < rule.size(); i++) {
             CasbinRule.class.getMethod(String.format("setV%d", i), String.class).invoke(this, rule.get(i));
         }
@@ -61,7 +63,9 @@ public class CasbinRule {
      * @return 填充好的casbinrule
      */
     public static Map<String, Object> toRuleMap(String ptype, int fieldIndex, String... fieldValues) {
-        if (ArrayUtil.isEmpty(fieldValues)) return null;
+        if (ArrayUtil.isEmpty(fieldValues)) {
+            return null;
+        }
         HashMap<String, Object> ruleMap = new HashMap<>();
         ruleMap.put("ptype", ptype);
         for (int i = 0; i < fieldValues.length; i++) {

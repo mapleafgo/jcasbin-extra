@@ -1,14 +1,15 @@
-package cn.jcasbin.adapter;
+package cn.mapleafgo.jcasbin.adapter;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.db.Db;
 import cn.hutool.db.Entity;
 import cn.hutool.db.Session;
-import cn.jcasbin.entity.CasbinRule;
+import cn.mapleafgo.jcasbin.entity.CasbinRule;
 import lombok.SneakyThrows;
 import org.casbin.jcasbin.exception.CasbinAdapterException;
 import org.casbin.jcasbin.model.Model;
 import org.casbin.jcasbin.persist.Adapter;
+import org.casbin.jcasbin.persist.BatchAdapter;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;
@@ -20,12 +21,14 @@ import java.util.stream.Collectors;
  *
  * @author 慕枫
  */
-public class HutoolDBAdapter implements Adapter {
+public class HutoolDBAdapter implements Adapter, BatchAdapter {
     private final Session session;
     private final String tableName;
 
     public HutoolDBAdapter(DataSource dataSource, String tableName) throws SQLException {
-        if (StrUtil.isBlank(tableName)) throw new CasbinAdapterException("表名不能为空");
+        if (StrUtil.isBlank(tableName)) {
+            throw new CasbinAdapterException("表名不能为空");
+        }
         this.session = Session.create(dataSource);
         this.tableName = tableName;
 
@@ -62,7 +65,9 @@ public class HutoolDBAdapter implements Adapter {
     @Override
     public void savePolicy(Model model) {
         List<CasbinRule> casbinRules = CasbinRule.transformToCasbinRule(model);
-        if (casbinRules.isEmpty()) return;
+        if (casbinRules.isEmpty()) {
+            return;
+        }
 
         try {
             session.tx(s -> {
@@ -84,8 +89,9 @@ public class HutoolDBAdapter implements Adapter {
         Entity entity = Entity.parse(casbinRule);
         entity.setTableName(tableName);
         try {
-            if (session.count(entity) <= 0)
+            if (session.count(entity) <= 0) {
                 session.insert(entity);
+            }
         } catch (SQLException e) {
             session.quietRollback();
             throw new CasbinAdapterException("casbin policy 新增失败", e);
@@ -118,6 +124,64 @@ public class HutoolDBAdapter implements Adapter {
         } catch (SQLException e) {
             session.quietRollback();
             throw new CasbinAdapterException("casbin policy 按条件移除失败", e);
+        }
+    }
+
+    @Override
+    public void addPolicies(String sec, String ptype, List<List<String>> rules) {
+        if (rules.isEmpty()) {
+            return;
+        }
+        List<Entity> entities = rules.stream()
+            .map(rule -> {
+                CasbinRule casbinRule = new CasbinRule();
+                casbinRule.setPtype(ptype);
+                casbinRule.setRule(rule);
+                return casbinRule;
+            })
+            .distinct()
+            .map(Entity::parse)
+            .peek(entity -> entity.setTableName(tableName))
+            .toList();
+
+        try {
+            session.tx(s -> {
+                for (Entity entity : entities) {
+                    s.del(entity);
+                }
+                s.insert(entities);
+            });
+        } catch (SQLException e) {
+            session.quietRollback();
+            throw new CasbinAdapterException("casbin policy 批量新增失败", e);
+        }
+    }
+
+    @Override
+    public void removePolicies(String sec, String ptype, List<List<String>> rules) {
+        if (rules.isEmpty()) {
+            return;
+        }
+        List<Entity> entities = rules.stream().map(rule -> {
+                CasbinRule casbinRule = new CasbinRule();
+                casbinRule.setPtype(ptype);
+                casbinRule.setRule(rule);
+                return casbinRule;
+            })
+            .distinct()
+            .map(Entity::parse)
+            .peek(entity -> entity.setTableName(tableName))
+            .toList();
+
+        try {
+            session.tx(s -> {
+                for (Entity entity : entities) {
+                    s.del(entity);
+                }
+            });
+        } catch (SQLException e) {
+            session.quietRollback();
+            throw new CasbinAdapterException("casbin policy 批量移除失败", e);
         }
     }
 }
