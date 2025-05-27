@@ -22,21 +22,6 @@ public class CasbinRule {
     private String v4;
 
     /**
-     * 填充rule
-     *
-     * @param rule 权限关键字
-     */
-    @SneakyThrows
-    public void setRule(List<String> rule) {
-        if (rule.isEmpty()) {
-            return;
-        }
-        for (int i = 0; i < rule.size(); i++) {
-            CasbinRule.class.getMethod(String.format("setV%d", i), String.class).invoke(this, rule.get(i));
-        }
-    }
-
-    /**
      * 从Model获取casbinrule
      *
      * @param model casbin model对象
@@ -72,5 +57,31 @@ public class CasbinRule {
             ruleMap.put(String.format("v%d", fieldIndex + i), fieldValues[i]);
         }
         return ruleMap;
+    }
+
+    @SneakyThrows
+    public List<String> getRule() {
+        List<String> rule = new ArrayList<>();
+        rule.add(ptype);
+        for (int i = 0; i < 5; i++) {
+            String value = (String) CasbinRule.class.getMethod(String.format("getV%d", i)).invoke(this);
+            rule.add(Objects.requireNonNullElse(value, ""));
+        }
+        return rule;
+    }
+
+    /**
+     * 填充rule
+     *
+     * @param rule 权限关键字
+     */
+    @SneakyThrows
+    public void setRule(List<String> rule) {
+        if (rule.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < rule.size(); i++) {
+            CasbinRule.class.getMethod(String.format("setV%d", i), String.class).invoke(this, rule.get(i));
+        }
     }
 }

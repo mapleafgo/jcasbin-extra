@@ -1,5 +1,6 @@
 package cn.mapleafgo.jcasbin.adapter;
 
+import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.db.Db;
 import cn.hutool.db.Entity;
@@ -7,13 +8,14 @@ import cn.hutool.db.Session;
 import cn.mapleafgo.jcasbin.entity.CasbinRule;
 import lombok.SneakyThrows;
 import org.casbin.jcasbin.exception.CasbinAdapterException;
+import org.casbin.jcasbin.model.Assertion;
 import org.casbin.jcasbin.model.Model;
+import org.casbin.jcasbin.persist.Adapter;
 import org.casbin.jcasbin.persist.BatchAdapter;
 import org.casbin.jcasbin.persist.UpdatableAdapter;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -24,9 +26,9 @@ import java.util.stream.Collectors;
  *
  * @author 慕枫
  */
-public class HutoolDBAdapter implements UpdatableAdapter, BatchAdapter {
-    private final Session session;
-    private final String tableName;
+public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter {
+    protected final Session session;
+    protected final String tableName;
 
     public HutoolDBAdapter(DataSource dataSource, String tableName) throws SQLException {
         if (StrUtil.isBlank(tableName)) {
@@ -49,20 +51,31 @@ public class HutoolDBAdapter implements UpdatableAdapter, BatchAdapter {
     @Override
     @SneakyThrows(SQLException.class)
     public void loadPolicy(Model model) {
-        List<Entity> entityList = session.findAll(tableName);
-        // 按ptype对策略进行分组,并合并重复数据
-        Map<String, List<List<String>>> policies = entityList.parallelStream().distinct()
-            .collect(Collectors.toMap(entity -> entity.getStr("ptype"), entity -> {
-                entity.remove("ptype");
-                ArrayList<List<String>> lists = new ArrayList<>();
-                lists.add(entity.values().stream().map(Object::toString).toList());
-                return lists;
-            }, (value, newValue) -> {
-                value.addAll(newValue);
-                return value;
-            }));
-        // 对分组的策略进行加载
-        policies.keySet().forEach(k -> model.model.get(k.substring(0, 1)).get(k).policy.addAll(policies.get(k)));
+        List<CasbinRule> rules = session.findAll(Entity.create(tableName), CasbinRule.class);
+
+        for (CasbinRule rule : rules) {
+            List<String> policy = rule.getRule();
+            if (policy.isEmpty()) {
+                continue;
+            }
+            loadPolicyLine(policy, model);
+        }
+    }
+
+    protected void loadPolicyLine(List<String> rules, Model model) {
+        String key = rules.get(0);
+        String sec = key.substring(0, 1);
+        Map<String, Assertion> astMap = model.model.get(sec);
+        if (astMap == null) {
+            return;
+        }
+        Assertion ast = astMap.get(key);
+        if (ast == null) {
+            return;
+        }
+        List<String> policy = ListUtil.sub(rules, 1, rules.size() - 1);
+        ast.policy.add(policy);
+        ast.policyIndex.put(policy.toString(), ast.policy.size() - 1);
     }
 
     @Override
