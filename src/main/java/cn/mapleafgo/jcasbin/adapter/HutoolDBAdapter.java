@@ -8,12 +8,15 @@ import cn.mapleafgo.jcasbin.entity.CasbinRule;
 import lombok.SneakyThrows;
 import org.casbin.jcasbin.exception.CasbinAdapterException;
 import org.casbin.jcasbin.model.Model;
-import org.casbin.jcasbin.persist.Adapter;
 import org.casbin.jcasbin.persist.BatchAdapter;
+import org.casbin.jcasbin.persist.UpdatableAdapter;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -21,7 +24,7 @@ import java.util.stream.Collectors;
  *
  * @author 慕枫
  */
-public class HutoolDBAdapter implements Adapter, BatchAdapter {
+public class HutoolDBAdapter implements UpdatableAdapter, BatchAdapter {
     private final Session session;
     private final String tableName;
 
@@ -52,7 +55,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter {
             .collect(Collectors.toMap(entity -> entity.getStr("ptype"), entity -> {
                 entity.remove("ptype");
                 ArrayList<List<String>> lists = new ArrayList<>();
-                lists.add(Arrays.asList(entity.values().toArray(new String[0])));
+                lists.add(entity.values().stream().map(Object::toString).toList());
                 return lists;
             }, (value, newValue) -> {
                 value.addAll(newValue);
@@ -182,6 +185,33 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter {
         } catch (SQLException e) {
             session.quietRollback();
             throw new CasbinAdapterException("casbin policy 批量移除失败", e);
+        }
+    }
+
+    @Override
+    public void updatePolicy(String sec, String ptype, List<String> oldRule, List<String> newPolicy) {
+        CasbinRule casbinRule = new CasbinRule();
+        casbinRule.setPtype(ptype);
+
+        casbinRule.setRule(oldRule);
+
+        Entity oleEntity = Entity.parse(casbinRule);
+        oleEntity.setTableName(tableName);
+
+        casbinRule.setRule(newPolicy);
+
+        Entity newEntity = Entity.parse(casbinRule);
+        newEntity.setTableName(tableName);
+        try {
+            session.tx(s -> {
+                if (session.count(newEntity) <= 0) {
+                    s.del(oleEntity);
+                    session.insert(newEntity);
+                }
+            });
+        } catch (SQLException e) {
+            session.quietRollback();
+            throw new CasbinAdapterException("casbin policy 变更失败", e);
         }
     }
 }
