@@ -80,7 +80,7 @@ public class CasbinRule {
         if (rule.isEmpty()) {
             return;
         }
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < Math.min(5, rule.size()); i++) {
             CasbinRule.class.getMethod(String.format("setV%d", i), String.class).invoke(this, rule.get(i));
         }
     }
