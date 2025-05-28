@@ -1,5 +1,6 @@
 package cn.mapleafgo.jcasbin.adapter;
 
+import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.db.Entity;
 import cn.mapleafgo.jcasbin.entity.CasbinRule;
 import lombok.SneakyThrows;
@@ -11,6 +12,7 @@ import org.casbin.jcasbin.persist.file_adapter.FilteredAdapter.Filter;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -36,7 +38,7 @@ public class HutoolDBFilteredAdapter extends HutoolDBAdapter implements Filtered
             isFiltered = false;
             throw new CasbinAdapterException("Invalid filter type.");
         }
-        loadFilteredPolicyFile(model, (Filter) filter, Helper::loadPolicyLine);
+        loadFilteredPolicyFile(model, (Filter) filter, HutoolDBAdapter::loadPolicyLine);
         isFiltered = true;
     }
 
@@ -46,13 +48,13 @@ public class HutoolDBFilteredAdapter extends HutoolDBAdapter implements Filtered
     }
 
     @SneakyThrows(SQLException.class)
-    private void loadFilteredPolicyFile(Model model, Filter filter, Helper.loadPolicyLineHandler<String, Model> handler) throws CasbinAdapterException {
+    private void loadFilteredPolicyFile(Model model, Filter filter, Helper.loadPolicyLineHandler<List<String>, Model> handler) throws CasbinAdapterException {
         List<CasbinRule> rules = session.findAll(Entity.create(tableName), CasbinRule.class);
         for (CasbinRule rule : rules) {
             if (filterLine(rule, filter)) {
                 continue;
             }
-            loadPolicyLine(rule.getRule(), model);
+            handler.accept(rule.getRule(), model);
         }
     }
 
@@ -60,28 +62,19 @@ public class HutoolDBFilteredAdapter extends HutoolDBAdapter implements Filtered
         if (filter == null) {
             return false;
         }
-        String[] filterSlice = null;
+        String[] rule = ArrayUtil.toArray(line.getRule(), String.class);
         if ("p".equals(line.getPtype())) {
-            filterSlice = filter.p;
+            return filterWords(rule, filter.p);
         } else if ("g".equals(line.getPtype())) {
-            filterSlice = filter.g;
+            return filterWords(rule, filter.g);
         }
-        if (filterSlice == null) {
-            filterSlice = new String[]{};
-        }
-        return filterWords(line.getRule(), filterSlice);
+        return true;
     }
 
-    private boolean filterWords(List<String> line, String[] filter) {
-        boolean skipLine = false;
-        int i = 0;
-        for (String s : filter) {
-            i++;
-            if (!s.isEmpty() && !s.trim().equals(line.get(i).trim())) {
-                skipLine = true;
-                break;
-            }
+    private boolean filterWords(String[] rule, String[] filter) {
+        if (rule.length < filter.length + 1) {
+            return true;
         }
-        return skipLine;
+        return !Arrays.equals(Arrays.copyOfRange(rule, 1, filter.length + 1), filter);
     }
 }

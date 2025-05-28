@@ -48,6 +48,22 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         Db.use(dataSource).execute(String.format(initTable, tableName));
     }
 
+    public static void loadPolicyLine(List<String> rule, Model model) {
+        String key = rule.get(0);
+        String sec = key.substring(0, 1);
+        Map<String, Assertion> astMap = model.model.get(sec);
+        if (astMap == null) {
+            return;
+        }
+        Assertion ast = astMap.get(key);
+        if (ast == null) {
+            return;
+        }
+        List<String> policy = ListUtil.sub(rule, 1, rule.size());
+        ast.policy.add(policy);
+        ast.policyIndex.put(policy.toString(), ast.policy.size() - 1);
+    }
+
     @Override
     @SneakyThrows(SQLException.class)
     public void loadPolicy(Model model) {
@@ -58,24 +74,8 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
             if (policy.isEmpty()) {
                 continue;
             }
-            loadPolicyLine(policy, model);
+            HutoolDBAdapter.loadPolicyLine(policy, model);
         }
-    }
-
-    protected void loadPolicyLine(List<String> rules, Model model) {
-        String key = rules.get(0);
-        String sec = key.substring(0, 1);
-        Map<String, Assertion> astMap = model.model.get(sec);
-        if (astMap == null) {
-            return;
-        }
-        Assertion ast = astMap.get(key);
-        if (ast == null) {
-            return;
-        }
-        List<String> policy = ListUtil.sub(rules, 1, rules.size() - 1);
-        ast.policy.add(policy);
-        ast.policyIndex.put(policy.toString(), ast.policy.size() - 1);
     }
 
     @Override
