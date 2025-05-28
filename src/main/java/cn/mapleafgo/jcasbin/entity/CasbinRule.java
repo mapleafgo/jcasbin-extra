@@ -22,9 +22,9 @@ public class CasbinRule {
     private String v4;
 
     /**
-     * 从Model获取casbinrule
+     * 从 Model 获取 casbinrule
      *
-     * @param model casbin model对象
+     * @param model casbin model 对象
      * @return Rule实体对象列表
      */
     public static List<CasbinRule> transformToCasbinRule(Model model) {
@@ -39,13 +39,13 @@ public class CasbinRule {
     }
 
     /**
-     * 填充casbinrule
+     * 填充 casbinrule
      *
      * @param ptype       the policy type
      * @param fieldIndex  the policy rule's start index to be matched.
      * @param fieldValues the field values to be matched, value ""
      *                    means not to match this field.
-     * @return 填充好的casbinrule
+     * @return 填充好的 casbinrule
      */
     public static Map<String, Object> toRuleMap(String ptype, int fieldIndex, String... fieldValues) {
         if (ArrayUtil.isEmpty(fieldValues)) {
@@ -59,13 +59,21 @@ public class CasbinRule {
         return ruleMap;
     }
 
+    /**
+     * 获取列表形式规则
+     *
+     * @return 返回列表形式规则
+     */
     @SneakyThrows
     public List<String> getRule() {
         List<String> rule = new ArrayList<>();
         rule.add(ptype);
         for (int i = 0; i < 5; i++) {
             String value = (String) CasbinRule.class.getMethod(String.format("getV%d", i)).invoke(this);
-            rule.add(Objects.requireNonNullElse(value, ""));
+            if (Objects.isNull(value)) {
+                break;
+            }
+            rule.add(value);
         }
         return rule;
     }
