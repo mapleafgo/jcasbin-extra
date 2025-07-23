@@ -1,6 +1,7 @@
 package cn.mapleafgo.jcasbin.entity;
 
 import cn.hutool.core.util.ArrayUtil;
+import cn.hutool.core.util.IdUtil;
 import lombok.Data;
 import lombok.SneakyThrows;
 import org.casbin.jcasbin.model.Model;
@@ -14,6 +15,7 @@ import java.util.*;
  */
 @Data
 public class CasbinRule {
+    private Long id;
     private String ptype;
     private String v0;
     private String v1;
@@ -31,6 +33,7 @@ public class CasbinRule {
         Set<CasbinRule> casbinRules = new HashSet<>();
         model.model.values().forEach(x -> x.values().forEach(y -> y.policy.forEach(z -> {
             CasbinRule casbinRule = new CasbinRule();
+            casbinRule.setId(IdUtil.getSnowflakeNextId());
             casbinRule.setPtype(y.key);
             casbinRule.setRule(z);
             casbinRules.add(casbinRule);

@@ -1,6 +1,7 @@
 package cn.mapleafgo.jcasbin.adapter;
 
 import cn.hutool.core.collection.ListUtil;
+import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.db.Db;
 import cn.hutool.db.Entity;
@@ -38,6 +39,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         this.tableName = tableName;
 
         String initTable = "CREATE TABLE IF NOT EXISTS %s (" +
+            "    id    bigint(20) NOT NULL," +
             "    ptype varchar(10) NOT NULL," +
             "    v0    varchar(100) DEFAULT NULL," +
             "    v1    varchar(100) DEFAULT NULL," +
@@ -87,11 +89,10 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
 
         try {
             session.tx(s -> {
-                s.execute("DELETE FROM ?", tableName);
+                s.execute("TRUNCATE ?", tableName);
                 s.insert(casbinRules.stream().map(Entity::parse).peek(entity -> entity.setTableName(tableName)).collect(Collectors.toList()));
             });
         } catch (SQLException e) {
-            session.quietRollback();
             throw new CasbinAdapterException("casbin policy 保存失败", e);
         }
     }
@@ -102,6 +103,8 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         casbinRule.setPtype(ptype);
         casbinRule.setRule(rule);
 
+        casbinRule.setId(IdUtil.getSnowflakeNextId());
+
         Entity entity = Entity.parse(casbinRule);
         entity.setTableName(tableName);
         try {
@@ -109,7 +112,6 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
                 session.insert(entity);
             }
         } catch (SQLException e) {
-            session.quietRollback();
             throw new CasbinAdapterException("casbin policy 新增失败", e);
         }
     }
@@ -125,7 +127,6 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         try {
             session.tx(s -> s.del(entity));
         } catch (SQLException e) {
-            session.quietRollback();
             throw new CasbinAdapterException("casbin policy 移除失败", e);
         }
     }
@@ -138,7 +139,6 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         try {
             session.tx(s -> s.del(entity));
         } catch (SQLException e) {
-            session.quietRollback();
             throw new CasbinAdapterException("casbin policy 按条件移除失败", e);
         }
     }
@@ -148,27 +148,24 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         if (rules.isEmpty()) {
             return;
         }
-        List<Entity> entities = rules.stream()
-            .map(rule -> {
-                CasbinRule casbinRule = new CasbinRule();
-                casbinRule.setPtype(ptype);
-                casbinRule.setRule(rule);
-                return casbinRule;
-            })
-            .distinct()
-            .map(Entity::parse)
-            .peek(entity -> entity.setTableName(tableName))
-            .toList();
-
         try {
             session.tx(s -> {
-                for (Entity entity : entities) {
+                for (List<String> rule : rules) {
+                    CasbinRule casbinRule = new CasbinRule();
+                    casbinRule.setPtype(ptype);
+                    casbinRule.setRule(rule);
+
+                    Entity entity = Entity.parse(rule);
+                    entity.setTableName(tableName);
                     s.del(entity);
+
+                    casbinRule.setId(IdUtil.getSnowflakeNextId());
+                    entity.parseBean(casbinRule);
+
+                    s.insert(entity);
                 }
-                s.insert(entities);
             });
         } catch (SQLException e) {
-            session.quietRollback();
             throw new CasbinAdapterException("casbin policy 批量新增失败", e);
         }
     }
@@ -178,25 +175,19 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         if (rules.isEmpty()) {
             return;
         }
-        List<Entity> entities = rules.stream().map(rule -> {
-                CasbinRule casbinRule = new CasbinRule();
-                casbinRule.setPtype(ptype);
-                casbinRule.setRule(rule);
-                return casbinRule;
-            })
-            .distinct()
-            .map(Entity::parse)
-            .peek(entity -> entity.setTableName(tableName))
-            .toList();
-
         try {
             session.tx(s -> {
-                for (Entity entity : entities) {
+                for (List<String> rule : rules) {
+                    CasbinRule casbinRule = new CasbinRule();
+                    casbinRule.setPtype(ptype);
+                    casbinRule.setRule(rule);
+
+                    Entity entity = Entity.parse(rule);
+                    entity.setTableName(tableName);
                     s.del(entity);
                 }
             });
         } catch (SQLException e) {
-            session.quietRollback();
             throw new CasbinAdapterException("casbin policy 批量移除失败", e);
         }
     }
@@ -211,19 +202,19 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         Entity oleEntity = Entity.parse(casbinRule);
         oleEntity.setTableName(tableName);
 
+        casbinRule.setId(IdUtil.getSnowflakeNextId());
         casbinRule.setRule(newPolicy);
 
         Entity newEntity = Entity.parse(casbinRule);
         newEntity.setTableName(tableName);
         try {
             session.tx(s -> {
-                if (session.count(newEntity) <= 0) {
+                if (s.count(newEntity) <= 0) {
                     s.del(oleEntity);
-                    session.insert(newEntity);
+                    s.insert(newEntity);
                 }
             });
         } catch (SQLException e) {
-            session.quietRollback();
             throw new CasbinAdapterException("casbin policy 变更失败", e);
         }
     }
