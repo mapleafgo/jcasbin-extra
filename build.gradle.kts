@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "cn.mapleafgo"
-version = "0.3.4"
+version = "0.4.1"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -20,12 +20,12 @@ repositories {
 }
 
 dependencies {
-    api("org.casbin:jcasbin:1.81.0")
+    api("org.casbin:jcasbin:1.82.0")
     api("io.etcd:jetcd-core:0.8.5")
-    implementation("cn.hutool:hutool-core:5.8.38")
-    implementation("cn.hutool:hutool-db:5.8.38")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.12.2")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.12.2")
+    implementation("cn.hutool:hutool-core:5.8.39")
+    implementation("cn.hutool:hutool-db:5.8.39")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.13.4")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.4")
 }
 
 tasks.withType<JavaCompile> {
