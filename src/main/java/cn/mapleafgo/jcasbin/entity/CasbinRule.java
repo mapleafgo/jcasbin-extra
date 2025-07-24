@@ -33,7 +33,6 @@ public class CasbinRule {
         Set<CasbinRule> casbinRules = new HashSet<>();
         model.model.values().forEach(x -> x.values().forEach(y -> y.policy.forEach(z -> {
             CasbinRule casbinRule = new CasbinRule();
-            casbinRule.setId(IdUtil.getSnowflakeNextId());
             casbinRule.setPtype(y.key);
             casbinRule.setRule(z);
             casbinRules.add(casbinRule);

@@ -20,10 +20,9 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
- * Casbin HutoolDB适配器
+ * Casbin HutoolDB 适配器
  *
  * @author 慕枫
  */
@@ -39,7 +38,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         this.tableName = tableName;
 
         String initTable = "CREATE TABLE IF NOT EXISTS %s (" +
-            "    id    bigint(20) NOT NULL," +
+            "    id    bigint(20) NOT NULL PRIMARY KEY," +
             "    ptype varchar(10) NOT NULL," +
             "    v0    varchar(100) DEFAULT NULL," +
             "    v1    varchar(100) DEFAULT NULL," +
@@ -87,10 +86,14 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
             return;
         }
 
+        List<Entity> list = casbinRules.stream()
+            .peek(r -> r.setId(IdUtil.getSnowflakeNextId()))
+            .map(r -> Entity.create(tableName).parseBean(r))
+            .toList();
         try {
             session.tx(s -> {
                 s.execute("TRUNCATE ?", tableName);
-                s.insert(casbinRules.stream().map(Entity::parse).peek(entity -> entity.setTableName(tableName)).collect(Collectors.toList()));
+                s.insert(list);
             });
         } catch (SQLException e) {
             throw new CasbinAdapterException("casbin policy 保存失败", e);
@@ -103,14 +106,8 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         casbinRule.setPtype(ptype);
         casbinRule.setRule(rule);
 
-        casbinRule.setId(IdUtil.getSnowflakeNextId());
-
-        Entity entity = Entity.parse(casbinRule);
-        entity.setTableName(tableName);
         try {
-            if (session.count(entity) <= 0) {
-                session.insert(entity);
-            }
+            session.tx(s -> addPolicy(s, ptype, rule));
         } catch (SQLException e) {
             throw new CasbinAdapterException("casbin policy 新增失败", e);
         }
@@ -151,18 +148,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         try {
             session.tx(s -> {
                 for (List<String> rule : rules) {
-                    CasbinRule casbinRule = new CasbinRule();
-                    casbinRule.setPtype(ptype);
-                    casbinRule.setRule(rule);
-
-                    Entity entity = Entity.parse(rule);
-                    entity.setTableName(tableName);
-                    s.del(entity);
-
-                    casbinRule.setId(IdUtil.getSnowflakeNextId());
-                    entity.parseBean(casbinRule);
-
-                    s.insert(entity);
+                    addPolicy(s, ptype, rule);
                 }
             });
         } catch (SQLException e) {
@@ -194,28 +180,47 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
 
     @Override
     public void updatePolicy(String sec, String ptype, List<String> oldRule, List<String> newPolicy) {
-        CasbinRule casbinRule = new CasbinRule();
-        casbinRule.setPtype(ptype);
+        CasbinRule rule = new CasbinRule();
+        rule.setPtype(ptype);
+        rule.setRule(oldRule);
 
-        casbinRule.setRule(oldRule);
-
-        Entity oleEntity = Entity.parse(casbinRule);
-        oleEntity.setTableName(tableName);
-
-        casbinRule.setId(IdUtil.getSnowflakeNextId());
-        casbinRule.setRule(newPolicy);
-
-        Entity newEntity = Entity.parse(casbinRule);
-        newEntity.setTableName(tableName);
+        Entity delEntity = Entity.parse(rule);
+        delEntity.setTableName(tableName);
         try {
             session.tx(s -> {
-                if (s.count(newEntity) <= 0) {
-                    s.del(oleEntity);
-                    s.insert(newEntity);
-                }
+                s.del(delEntity);
+                addPolicy(s, ptype, newPolicy);
             });
         } catch (SQLException e) {
             throw new CasbinAdapterException("casbin policy 变更失败", e);
         }
+    }
+
+    /**
+     * 添加策略到数据库
+     *
+     * @param s     数据库会话
+     * @param ptype 策略类型
+     * @param rule  策略规则
+     * @throws SQLException 数据库操作异常
+     */
+    private void addPolicy(Session s, String ptype, List<String> rule) throws SQLException {
+        if (rule.isEmpty()) {
+            return;
+        }
+
+        Entity entity = Entity.create(tableName);
+
+        CasbinRule cRule = new CasbinRule();
+        cRule.setPtype(ptype);
+        cRule.setRule(rule);
+
+        entity = entity.parseBean(rule);
+        s.del(entity);
+
+        cRule.setId(IdUtil.getSnowflakeNextId());
+        entity = entity.parseBean(cRule);
+
+        s.insert(entity);
     }
 }
