@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "cn.mapleafgo"
-version = "0.4.1"
+version = "0.4.2"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -20,7 +20,7 @@ repositories {
 }
 
 dependencies {
-    api("org.casbin:jcasbin:1.82.0")
+    api("org.casbin:jcasbin:1.83.0")
     api("io.etcd:jetcd-core:0.8.5")
     implementation("cn.hutool:hutool-core:5.8.39")
     implementation("cn.hutool:hutool-db:5.8.39")
