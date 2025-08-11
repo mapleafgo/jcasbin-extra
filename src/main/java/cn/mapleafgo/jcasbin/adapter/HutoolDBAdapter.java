@@ -37,15 +37,17 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         this.session = Session.create(dataSource);
         this.tableName = tableName;
 
-        String initTable = "CREATE TABLE IF NOT EXISTS %s (" +
-            "    id    bigint(20) NOT NULL PRIMARY KEY," +
-            "    ptype varchar(10) NOT NULL," +
-            "    v0    varchar(100) DEFAULT NULL," +
-            "    v1    varchar(100) DEFAULT NULL," +
-            "    v2    varchar(100) DEFAULT NULL," +
-            "    v3    varchar(100) DEFAULT NULL," +
-            "    v4    varchar(100) DEFAULT NULL" +
-            ")";
+        String initTable = """
+            CREATE TABLE IF NOT EXISTS %s (
+                id    bigint(20) NOT NULL PRIMARY KEY,
+                ptype varchar(10) NOT NULL,
+                v0    varchar(100) DEFAULT NULL,
+                v1    varchar(100) DEFAULT NULL,
+                v2    varchar(100) DEFAULT NULL,
+                v3    varchar(100) DEFAULT NULL,
+                v4    varchar(100) DEFAULT NULL
+            )
+            """;
         Db.use(dataSource).execute(String.format(initTable, tableName));
     }
 
