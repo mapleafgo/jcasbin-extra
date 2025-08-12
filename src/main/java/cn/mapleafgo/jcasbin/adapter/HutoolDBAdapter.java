@@ -39,7 +39,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
 
         String initTable = """
             CREATE TABLE IF NOT EXISTS %s (
-                id    bigint(20) NOT NULL PRIMARY KEY,
+                id    bigint NOT NULL PRIMARY KEY,
                 ptype varchar(10) NOT NULL,
                 v0    varchar(100) DEFAULT NULL,
                 v1    varchar(100) DEFAULT NULL,
