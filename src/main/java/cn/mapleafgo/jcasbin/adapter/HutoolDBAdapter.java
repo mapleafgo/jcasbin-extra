@@ -217,7 +217,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         cRule.setPtype(ptype);
         cRule.setRule(rule);
 
-        entity = entity.parseBean(rule);
+        entity = entity.parseBean(cRule);
         s.del(entity);
 
         cRule.setId(IdUtil.getSnowflakeNextId());
