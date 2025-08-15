@@ -166,7 +166,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
                     casbinRule.setPtype(ptype);
                     casbinRule.setRule(rule);
 
-                    Entity entity = Entity.parse(rule);
+                    Entity entity = Entity.parse(casbinRule);
                     entity.setTableName(tableName);
                     s.del(entity);
                 }
