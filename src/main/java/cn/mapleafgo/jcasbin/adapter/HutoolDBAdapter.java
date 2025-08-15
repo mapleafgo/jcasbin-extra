@@ -104,10 +104,6 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
 
     @Override
     public void addPolicy(String sec, String ptype, List<String> rule) {
-        CasbinRule casbinRule = new CasbinRule();
-        casbinRule.setPtype(ptype);
-        casbinRule.setRule(rule);
-
         try {
             session.tx(s -> addPolicy(s, ptype, rule));
         } catch (SQLException e) {
