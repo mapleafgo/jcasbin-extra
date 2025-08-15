@@ -1,8 +1,8 @@
 package cn.mapleafgo.jcasbin.adapter;
 
 import cn.hutool.core.util.ArrayUtil;
-import cn.hutool.db.Db;
 import cn.hutool.db.Entity;
+import cn.mapleafgo.jcasbin.db.LeafDb;
 import cn.mapleafgo.jcasbin.entity.CasbinRule;
 import lombok.SneakyThrows;
 import org.casbin.jcasbin.exception.CasbinAdapterException;
@@ -51,7 +51,7 @@ public class HutoolDBFilteredAdapter extends HutoolDBAdapter implements Filtered
 
     @SneakyThrows(SQLException.class)
     private void loadFilteredPolicyFile(Model model, Filter filter, Helper.loadPolicyLineHandler<List<String>, Model> handler) throws CasbinAdapterException {
-        List<CasbinRule> rules = Db.use(dataSource).findAll(Entity.create(tableName), CasbinRule.class);
+        List<CasbinRule> rules = LeafDb.use(dataSource).findAll(Entity.create(tableName), CasbinRule.class);
         for (CasbinRule rule : rules) {
             if (filterLine(rule, filter)) {
                 continue;
