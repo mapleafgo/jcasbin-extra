@@ -36,7 +36,7 @@ public class RedisWatcher implements Watcher, AutoCloseable {
      * 运行阻止 Jedis 订阅调用。观察者只会关闭订阅者
      * executor if {@code shutdownSubscriberExecutorOnClose} 为 true（参见私有构造函数）。
      * <p>
-     * 如果 {@code callbackExecutor} 为 null，则使用 {@link java.util.concurrent.ForkJoinPool#commonPool（）}。
+     * 如果 {@code callbackExecutor} 为 null，则使用 {@link java.util.concurrent.ForkJoinPool#commonPool()}。
      */
     public RedisWatcher(JedisPool pool, String keyName, String channelName, Executor callbackExecutor, ExecutorService subscriberExecutor) {
         this(pool, keyName, channelName, callbackExecutor, subscriberExecutor, false);
