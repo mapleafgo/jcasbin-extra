@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "cn.mapleafgo"
-version = "0.4.5"
+version = "0.4.6"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
