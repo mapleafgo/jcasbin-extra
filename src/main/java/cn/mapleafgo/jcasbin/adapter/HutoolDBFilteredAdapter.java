@@ -1,6 +1,7 @@
 package cn.mapleafgo.jcasbin.adapter;
 
 import cn.hutool.core.util.ArrayUtil;
+import cn.hutool.db.Db;
 import cn.hutool.db.Entity;
 import cn.mapleafgo.jcasbin.entity.CasbinRule;
 import lombok.SneakyThrows;
@@ -14,6 +15,7 @@ import javax.sql.DataSource;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Casbin HutoolDB 适配器，支持 Filtered
@@ -49,7 +51,7 @@ public class HutoolDBFilteredAdapter extends HutoolDBAdapter implements Filtered
 
     @SneakyThrows(SQLException.class)
     private void loadFilteredPolicyFile(Model model, Filter filter, Helper.loadPolicyLineHandler<List<String>, Model> handler) throws CasbinAdapterException {
-        List<CasbinRule> rules = session.findAll(Entity.create(tableName), CasbinRule.class);
+        List<CasbinRule> rules = Db.use(dataSource).findAll(Entity.create(tableName), CasbinRule.class);
         for (CasbinRule rule : rules) {
             if (filterLine(rule, filter)) {
                 continue;
@@ -63,9 +65,9 @@ public class HutoolDBFilteredAdapter extends HutoolDBAdapter implements Filtered
             return false;
         }
         String[] rule = ArrayUtil.toArray(line.getRule(), String.class);
-        if ("p".equals(line.getPtype())) {
+        if (Objects.equals("p", line.getPtype())) {
             return filterWords(rule, filter.p);
-        } else if ("g".equals(line.getPtype())) {
+        } else if (Objects.equals("g", line.getPtype())) {
             return filterWords(rule, filter.g);
         }
         return true;

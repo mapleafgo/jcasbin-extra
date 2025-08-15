@@ -24,6 +24,7 @@ dependencies {
     api("io.etcd:jetcd-core:0.8.5")
     implementation("cn.hutool:hutool-core:5.8.39")
     implementation("cn.hutool:hutool-db:5.8.39")
+    implementation("redis.clients:jedis:6.1.0")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.13.4")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.13.4")
 }

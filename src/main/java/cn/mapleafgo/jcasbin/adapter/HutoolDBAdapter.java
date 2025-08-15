@@ -5,7 +5,6 @@ import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.db.Db;
 import cn.hutool.db.Entity;
-import cn.hutool.db.Session;
 import cn.mapleafgo.jcasbin.entity.CasbinRule;
 import lombok.SneakyThrows;
 import org.casbin.jcasbin.exception.CasbinAdapterException;
@@ -27,14 +26,19 @@ import java.util.Objects;
  * @author 慕枫
  */
 public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter {
-    protected final Session session;
+    private final static String REGEX_TABLE_NAME = "[A-Za-z0-9_]+";
+    protected final DataSource dataSource;
     protected final String tableName;
 
     public HutoolDBAdapter(DataSource dataSource, String tableName) throws SQLException {
         if (StrUtil.isBlank(tableName)) {
             throw new CasbinAdapterException("表名不能为空");
         }
-        this.session = Session.create(dataSource);
+        // 仅允许字母、数字和下划线，防止表名注入
+        if (!tableName.matches(REGEX_TABLE_NAME)) {
+            throw new CasbinAdapterException("表名只允许字母、数字和下划线");
+        }
+        this.dataSource = dataSource;
         this.tableName = tableName;
 
         String initTable = """
@@ -70,7 +74,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
     @Override
     @SneakyThrows(SQLException.class)
     public void loadPolicy(Model model) {
-        List<CasbinRule> rules = session.findAll(Entity.create(tableName), CasbinRule.class);
+        List<CasbinRule> rules = Db.use(dataSource).findAll(Entity.create(tableName), CasbinRule.class);
 
         for (CasbinRule rule : rules) {
             List<String> policy = rule.getRule();
@@ -93,9 +97,10 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
             .map(r -> Entity.create(tableName).parseBean(r))
             .toList();
         try {
-            session.tx(s -> {
-                s.execute("TRUNCATE ?", tableName);
-                s.insert(list);
+            Db.use(dataSource).tx(db -> {
+                // 表名已校验为安全格式，可以直接拼接
+                db.execute(String.format("TRUNCATE %s", tableName));
+                db.insert(list);
             });
         } catch (SQLException e) {
             throw new CasbinAdapterException("casbin policy 保存失败", e);
@@ -105,7 +110,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
     @Override
     public void addPolicy(String sec, String ptype, List<String> rule) {
         try {
-            session.tx(s -> addPolicy(s, ptype, rule));
+            Db.use(dataSource).tx(db -> addPolicy(db, ptype, rule));
         } catch (SQLException e) {
             throw new CasbinAdapterException("casbin policy 新增失败", e);
         }
@@ -120,7 +125,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         Entity entity = Entity.parse(casbinRule);
         entity.setTableName(tableName);
         try {
-            session.tx(s -> s.del(entity));
+            Db.use(dataSource).tx(db -> db.del(entity));
         } catch (SQLException e) {
             throw new CasbinAdapterException("casbin policy 移除失败", e);
         }
@@ -132,7 +137,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         entity.putAll(Objects.requireNonNull(CasbinRule.toRuleMap(ptype, fieldIndex, fieldValues)));
 
         try {
-            session.tx(s -> s.del(entity));
+            Db.use(dataSource).tx(db -> db.del(entity));
         } catch (SQLException e) {
             throw new CasbinAdapterException("casbin policy 按条件移除失败", e);
         }
@@ -144,9 +149,9 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
             return;
         }
         try {
-            session.tx(s -> {
+            Db.use(dataSource).tx(db -> {
                 for (List<String> rule : rules) {
-                    addPolicy(s, ptype, rule);
+                    addPolicy(db, ptype, rule);
                 }
             });
         } catch (SQLException e) {
@@ -160,7 +165,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
             return;
         }
         try {
-            session.tx(s -> {
+            Db.use(dataSource).tx(db -> {
                 for (List<String> rule : rules) {
                     CasbinRule casbinRule = new CasbinRule();
                     casbinRule.setPtype(ptype);
@@ -168,7 +173,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
 
                     Entity entity = Entity.parse(casbinRule);
                     entity.setTableName(tableName);
-                    s.del(entity);
+                    db.del(entity);
                 }
             });
         } catch (SQLException e) {
@@ -185,9 +190,9 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         Entity delEntity = Entity.parse(rule);
         delEntity.setTableName(tableName);
         try {
-            session.tx(s -> {
-                s.del(delEntity);
-                addPolicy(s, ptype, newPolicy);
+            Db.use(dataSource).tx(db -> {
+                db.del(delEntity);
+                addPolicy(db, ptype, newPolicy);
             });
         } catch (SQLException e) {
             throw new CasbinAdapterException("casbin policy 变更失败", e);
@@ -202,7 +207,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
      * @param rule  策略规则
      * @throws SQLException 数据库操作异常
      */
-    private void addPolicy(Session s, String ptype, List<String> rule) throws SQLException {
+    private void addPolicy(Db s, String ptype, List<String> rule) throws SQLException {
         if (rule.isEmpty()) {
             return;
         }
