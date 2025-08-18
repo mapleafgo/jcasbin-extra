@@ -1,5 +1,7 @@
 package cn.mapleafgo.jcasbin.adapter;
 
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
@@ -99,10 +101,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
             return;
         }
 
-        List<Entity> list = casbinRules.stream()
-            .peek(r -> r.setId(IdUtil.getSnowflakeNextId()))
-            .map(r -> Entity.create(tableName).parseBean(r))
-            .toList();
+        List<Entity> list = casbinRules.stream().peek(r -> r.setId(IdUtil.getSnowflakeNextId())).map(r -> Entity.create(tableName).parseBean(r)).toList();
         try {
             LeafDb.use(dataSource).tx(db -> {
                 // 表名已校验为安全格式，可以直接拼接
@@ -117,9 +116,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
     @Override
     public void addPolicy(String sec, String ptype, List<String> rule) {
         try {
-            LeafDb.use(dataSource).tx(db -> {
-                addPolicy(db, ptype, rule);
-            });
+            LeafDb.use(dataSource).tx(db -> addPolicy(db, ptype, rule));
         } catch (SQLException e) {
             throw new CasbinAdapterException("casbin policy 新增失败", e);
         }
@@ -127,16 +124,8 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
 
     @Override
     public void removePolicy(String sec, String ptype, List<String> rule) {
-        CasbinRule casbinRule = new CasbinRule();
-        casbinRule.setPtype(ptype);
-        casbinRule.setRule(rule);
-
-        Entity entity = Entity.parse(casbinRule);
-        entity.setTableName(tableName);
         try {
-            LeafDb.use(dataSource).tx(db -> {
-                db.del(entity);
-            });
+            LeafDb.use(dataSource).tx(db -> removePolicy(db, ptype, rule));
         } catch (SQLException e) {
             throw new CasbinAdapterException("casbin policy 移除失败", e);
         }
@@ -148,9 +137,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
         entity.putAll(Objects.requireNonNull(CasbinRule.toRuleMap(ptype, fieldIndex, fieldValues)));
 
         try {
-            LeafDb.use(dataSource).tx(db -> {
-                db.del(entity);
-            });
+            LeafDb.use(dataSource).tx(db -> db.del(entity));
         } catch (SQLException e) {
             throw new CasbinAdapterException("casbin policy 按条件移除失败", e);
         }
@@ -158,7 +145,7 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
 
     @Override
     public void addPolicies(String sec, String ptype, List<List<String>> rules) {
-        if (rules.isEmpty()) {
+        if (CollUtil.isEmpty(rules)) {
             return;
         }
         try {
@@ -174,19 +161,13 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
 
     @Override
     public void removePolicies(String sec, String ptype, List<List<String>> rules) {
-        if (rules.isEmpty()) {
+        if (CollUtil.isEmpty(rules)) {
             return;
         }
         try {
             LeafDb.use(dataSource).tx(db -> {
                 for (List<String> rule : rules) {
-                    CasbinRule casbinRule = new CasbinRule();
-                    casbinRule.setPtype(ptype);
-                    casbinRule.setRule(rule);
-
-                    Entity entity = Entity.parse(casbinRule);
-                    entity.setTableName(tableName);
-                    db.del(entity);
+                    removePolicy(db, ptype, rule);
                 }
             });
         } catch (SQLException e) {
@@ -196,15 +177,9 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
 
     @Override
     public void updatePolicy(String sec, String ptype, List<String> oldRule, List<String> newPolicy) {
-        CasbinRule rule = new CasbinRule();
-        rule.setPtype(ptype);
-        rule.setRule(oldRule);
-
-        Entity delEntity = Entity.parse(rule);
-        delEntity.setTableName(tableName);
         try {
             LeafDb.use(dataSource).tx(db -> {
-                db.del(delEntity);
+                removePolicy(db, ptype, oldRule);
                 addPolicy(db, ptype, newPolicy);
             });
         } catch (SQLException e) {
@@ -221,22 +196,39 @@ public class HutoolDBAdapter implements Adapter, BatchAdapter, UpdatableAdapter 
      * @throws SQLException 数据库操作异常
      */
     private void addPolicy(AbstractDb s, String ptype, List<String> rule) throws SQLException {
-        if (rule.isEmpty()) {
+        if (CollUtil.isEmpty(rule)) {
             return;
         }
 
-        Entity entity = Entity.create(tableName);
+        removePolicy(s, ptype, rule);
+
+        CasbinRule cRule = new CasbinRule();
+        cRule.setPtype(ptype);
+        cRule.setRule(rule);
+        cRule.setId(IdUtil.getSnowflakeNextId());
+
+        s.insert(Entity.create(tableName).parseBean(cRule));
+    }
+
+    /**
+     * 从数据库中移除策略
+     *
+     * @param s     数据库会话
+     * @param ptype 策略类型
+     * @param rule  策略规则
+     * @throws SQLException 数据库操作异常
+     */
+    private void removePolicy(AbstractDb s, String ptype, List<String> rule) throws SQLException {
+        if (CollUtil.isEmpty(rule)) {
+            return;
+        }
 
         CasbinRule cRule = new CasbinRule();
         cRule.setPtype(ptype);
         cRule.setRule(rule);
 
-        entity = entity.parseBean(cRule);
+        Entity entity = Entity.create(tableName);
+        entity.putAll(BeanUtil.beanToMap(cRule, true, true));
         s.del(entity);
-
-        cRule.setId(IdUtil.getSnowflakeNextId());
-        entity = entity.parseBean(cRule);
-
-        s.insert(entity);
     }
 }
